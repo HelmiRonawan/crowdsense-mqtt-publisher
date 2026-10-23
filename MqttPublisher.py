@@ -18,6 +18,9 @@ Aturan penting (dicek oleh backend, pelanggaran masuk ke DLQ dan tidak ada balas
   - gender: "male" | "female" | "unknown".
   - maksimal MaxRowsPerMessage (default 500) item per pesan.
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 import os
 import time
@@ -26,7 +29,7 @@ from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
-SERIAL = os.getenv("DEVICE_SERIAL", "DEV0001")   # harus terdaftar di tabel device; tanpa titik/spasi/# + *
+SERIAL = os.getenv("DEVICE_SERIAL", "SN-TEST-001")   # harus terdaftar di tabel device; tanpa titik/spasi/# + *
 HOST = os.getenv("MQTT_HOST", "localhost")
 PORT = int(os.getenv("MQTT_PORT", "1883"))
 # Autentikasi per device: username = serialNumber, password = API key device (yang ditampilkan SEKALI
@@ -102,23 +105,64 @@ if __name__ == "__main__":
     time.sleep(1)
 
     now = time.time()
+    
+    # 1. Buat unique snapshot key (hanya huruf, angka, -, _)
+    # Pastikan key ini sama dengan field "snapshotKey" di data audience jika ingin dihubungkan
+    snap_key1 = str(uuid.uuid4())
+    snap_key2 = str(uuid.uuid4())
+
+    # 2. Kirim data audience (dengan menyertakan snapshotKey-nya)
     ok = publish_audience_batch([
         {
-            "trackId": f"t-{int(now)}-1",
+            "trackId": f"t-{int(now)}-1",  # Unik untuk orang pertama
             "detectedAt": iso(now - 5),
             "exitedAt": iso(now),
-            "dwellTimeSeconds": 5.0,
-            "gender": "male",
-            "genderConfidence": 0.91,
-            "ageEstimate": 31,
-            "ageMin": 28,
+            "dwellTimeSeconds": 8.0,
+            "gender": "female",
+            "genderConfidence": 0.71,
+            "ageEstimate": 22,
+            "ageMin": 18,
             "ageMax": 35,
-            "ageConfidence": 0.8,
+            "ageConfidence": 0.5,
             "isView": True,
-            "snapshotKey": None,
+            "snapshotKey": snap_key1,
+        },
+        {
+            "trackId": f"t-{int(now)}-2",  # unik untuk orang kedua
+            "detectedAt": iso(now - 5),
+            "exitedAt": iso(now),
+            "dwellTimeSeconds": 10.0,
+            "gender": "male",
+            "genderConfidence": 0.85,
+            "ageEstimate": 25,
+            "ageMin": 20,
+            "ageMax": 40,
+            "ageConfidence": 0.6,
+            "isView": True,
+            "snapshotKey": snap_key2,
         },
     ])
     print("audience terkirim:", ok)
+
+    # 3. Kirim file foto crop mentah (JPEG bytes)
+    # Contoh: membaca file gambar asli dari disk
+    try:
+        with open("female.jpg", "rb") as f:
+            jpeg_data = f.read()
+        
+        ok_snap = publish_snapshot(snap_key1, jpeg_data)
+        print("snapshot terkirim:", ok_snap)
+    except FileNotFoundError:
+        print("File 'female.jpg' tidak ditemukan, lewati pengiriman snapshot.")
+
+    try:
+        with open("male.jpg", "rb") as f:
+            jpeg_data = f.read()
+            
+        ok_snap = publish_snapshot(snap_key2, jpeg_data)
+        print("snapshot terkirim:", ok_snap)
+    except FileNotFoundError:
+        print("File 'male.jpg' tidak ditemukan, lewati pengiriman snapshot.")
 
     client.loop_stop()
     client.disconnect()
