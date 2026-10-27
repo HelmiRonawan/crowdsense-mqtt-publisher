@@ -1,0 +1,35 @@
+// TOPIC crowdsense/audience/{serial}
+
+- Format: JSON Batch
+   - Fungsi: Mengirimkan data demografi, waktu deteksi, dwell time, dan pelacakan orang.
+{
+  "serialNumber": "SN-TEST-001",
+  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef0123456789",
+  "audiences": [
+    {
+      "trackId": "t-1729584000-1",
+      "detectedAt": "2026-10-21T10:00:00.000Z",
+      "exitedAt": "2026-10-21T10:00:08.000Z",
+      "dwellTimeSeconds": 8.0,
+      "gender": "female",
+      "genderConfidence": 0.71,
+      "ageEstimate": 22,
+      "ageMin": 18,
+      "ageMax": 35,
+      "ageConfidence": 0.5,
+      "isView": true,
+      "snapshotKey": "c1d2e3f4-a5b6-7890-1234-567890abcdef"
+    }
+  ]
+}
+
+// TPOIC crowdsense/snapshot/{serial}/{sessionId}/{snapshotKey}
+
+- Format: Raw Binary Bytes (File Gambar JPEG)
+   - Fungsi: Mengirimkan foto *crop* wajah/orang yang terdeteksi untuk disimpan ke MinIO S3.
+   - Batasan Ukuran: Maksimal ~1 MB per file.
+   - Aturan snapshotKey:
+     * Wajib SAMA PERSIS dengan nilai "snapshotKey" di payload audience.
+     * Hanya boleh berisi huruf, angka, tanda hubung (-), dan garis bawah (_).
+     * DILARANG menggunakan karakter titik (.) karena digunakan sebagai pemisah subjek di NATS.
+     * Maksimal 128 karakter (disarankan menggunakan string UUID).

@@ -1,12 +1,12 @@
 """
 Contoh publisher MQTT untuk perangkat edge (Python).
 
-Install:  pip install "paho-mqtt>=2.0"
+python -m venv env
+venv/Scripts/activate | deactivate
 
-Payload memakai skema yang SAMA dengan JSON yang dulu dikirim ke POST /api/v1/ingest/audience:
-  { "serialNumber": "...", "sessionId": "<uuid>", "audiences": [ {...}, ... ] }
+Install:  pip install "paho-mqtt>=2.0" & pip install python-dotenv
 
-Autentikasi: username = serialNumber, password = API key device (env DEVICE_API_KEY).
+Autentikasi: username = serialNumber(env DEVICE_SERIAL), password = API key device (env DEVICE_API_KEY).
 Device hanya boleh PUBLISH ke topic miliknya sendiri; SUBSCRIBE ditolak oleh broker.
 Koneksi diputus broker secara berkala (maks. 60 menit) dan harus connect ulang; paho melakukannya otomatis.
 
@@ -32,6 +32,7 @@ import paho.mqtt.client as mqtt
 SERIAL = os.getenv("DEVICE_SERIAL", "SN-TEST-001")   # harus terdaftar di tabel device; tanpa titik/spasi/# + *
 HOST = os.getenv("MQTT_HOST", "localhost")
 PORT = int(os.getenv("MQTT_PORT", "1883"))
+
 # Autentikasi per device: username = serialNumber, password = API key device (yang ditampilkan SEKALI
 # oleh backend saat device dibuat atau key-nya dirotasi).
 USERNAME = SERIAL
@@ -109,7 +110,9 @@ if __name__ == "__main__":
     # 1. Buat unique snapshot key (hanya huruf, angka, -, _)
     # Pastikan key ini sama dengan field "snapshotKey" di data audience jika ingin dihubungkan
     snap_key1 = str(uuid.uuid4())
-    snap_key2 = str(uuid.uuid4())
+
+    #untuk data ke2
+    #snap_key2 = str(uuid.uuid4())
 
     # 2. Kirim data audience (dengan menyertakan snapshotKey-nya)
     ok = publish_audience_batch([
@@ -118,7 +121,7 @@ if __name__ == "__main__":
             "detectedAt": iso(now - 5),
             "exitedAt": iso(now),
             "dwellTimeSeconds": 8.0,
-            "gender": "female",
+            "gender": "male",
             "genderConfidence": 0.71,
             "ageEstimate": 22,
             "ageMin": 18,
@@ -127,42 +130,51 @@ if __name__ == "__main__":
             "isView": True,
             "snapshotKey": snap_key1,
         },
-        {
-            "trackId": f"t-{int(now)}-2",  # unik untuk orang kedua
-            "detectedAt": iso(now - 5),
-            "exitedAt": iso(now),
-            "dwellTimeSeconds": 10.0,
-            "gender": "male",
-            "genderConfidence": 0.85,
-            "ageEstimate": 25,
-            "ageMin": 20,
-            "ageMax": 40,
-            "ageConfidence": 0.6,
-            "isView": True,
-            "snapshotKey": snap_key2,
-        },
+        # {
+        #     "trackId": f"t-{int(now)}-2",  # unik untuk orang kedua
+        #     "detectedAt": iso(now - 5),
+        #     "exitedAt": iso(now),
+        #     "dwellTimeSeconds": 10.0,
+        #     "gender": "female",
+        #     "genderConfidence": 0.85,
+        #     "ageEstimate": 25,
+        #     "ageMin": 20,
+        #     "ageMax": 40,
+        #     "ageConfidence": 0.6,
+        #     "isView": True,
+        #     "snapshotKey": snap_key2,
+        # },
     ])
     print("audience terkirim:", ok)
+
+    """
+    # input untuk coba mengirim snapshot terpisah pada publish_snapshot.py
+    # Uncomment 154-156 jika ingin mendapatkan sessionId dan SnapKey nya dulu sebelum publish snapshot terpisah
+    """
+    # print("\nSESSION_ID & SNAPSHOT_KEY untuk input publish snapshot:")
+    # print(f"SESSION_ID: {SESSION_ID}\n")
+    # print(f"SNAPSHOT_KEY: {snap_key1}")
+    
 
     # 3. Kirim file foto crop mentah (JPEG bytes)
     # Contoh: membaca file gambar asli dari disk
     try:
-        with open("female.jpg", "rb") as f:
+        with open("male.jpg", "rb") as f:
             jpeg_data = f.read()
         
         ok_snap = publish_snapshot(snap_key1, jpeg_data)
         print("snapshot terkirim:", ok_snap)
     except FileNotFoundError:
-        print("File 'female.jpg' tidak ditemukan, lewati pengiriman snapshot.")
-
-    try:
-        with open("male.jpg", "rb") as f:
-            jpeg_data = f.read()
-            
-        ok_snap = publish_snapshot(snap_key2, jpeg_data)
-        print("snapshot terkirim:", ok_snap)
-    except FileNotFoundError:
         print("File 'male.jpg' tidak ditemukan, lewati pengiriman snapshot.")
+
+    # try:
+    #     with open("female.jpg", "rb") as f:
+    #         jpeg_data = f.read()
+            
+    #     ok_snap = publish_snapshot(snap_key2, jpeg_data)
+    #     print("snapshot terkirim:", ok_snap)
+    # except FileNotFoundError:
+    #     print("File 'female.jpg' tidak ditemukan, lewati pengiriman snapshot.")
 
     client.loop_stop()
     client.disconnect()
